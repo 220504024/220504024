@@ -1,83 +1,102 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Counter DApp</title>
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-</head>
-<body>
-  <h1>Counter DApp</h1>
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week07 dApp — 220504024</title>
+  </head>
+  <body>
+    <h1>Week07 dApp — 220504024</h1>
+    <p id="status">Durum: bağlanmadı</p>
 
-  <p>Current Count: <span id="count">0</span></p>
-  <button onclick="increment()">Increment</button>
-  <button onclick="decrement()">Decrement</button>
+    <div>
+      <label>CONTRACT_ADDRESS: <input id="contractAddress" size="66" placeholder="0x..."/></label>
+    </div>
+    <div style="margin:8px 0">
+      <button id="btnConnect">Cüzdanı Bağla</button>
+      <button id="btnGet">getCounter()</button>
+      <button id="btnInc">increment()</button>
+      <button id="btnDec">decrement()</button>
+      <input id="setValue" type="number" placeholder="sayı" />
+      <button id="btnSet">setCounter(value)</button>
+    </div>
+    <pre id="log"></pre>
 
-  <script>
-    // 🔹 1. BURAYA KENDİ KONTRAT ADRESİNİ YAPIŞTIR
-    const CONTRACT_ADDRESS = "0x60d53bec3457d1e98de70fa7c425b239d4849133";
+    <!-- Ethers.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
 
-    // 🔹 2. BURAYA KENDİ ABI’NI YAPIŞTIR
-    const ABI = 
-      [
-	{
-		"inputs": [],
-		"name": "decrement",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "increment",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "get",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
+    <!-- Minimal ABI -->
+    <script id="abi" type="application/json">[
+      {"inputs":[{"internalType":"string","name":"_studentId","type":"string"}],"stateMutability":"nonpayable","type":"constructor"},
+      {"inputs":[],"name":"decrement","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[],"name":"getCounter","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},
+      {"inputs":[],"name":"increment","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[{"internalType":"int256","name":"_value","type":"int256"}],"name":"setCounter","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"nonpayable","type":"function"},
+      {"inputs":[],"name":"studentId","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}
+    ]</script>
 
-    ];
+    <script>
+      const $ = (sel) => document.querySelector(sel);
+      const log = (msg) => { $('#log').textContent += msg + "\\n"; };
 
-    let web3;
-    let contract;
+      let provider, signer, contract;
 
-    async function init() {
-      // Metamask bağlantısı ister
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      web3 = new Web3(window.ethereum);
-      contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
-      updateCount();
-    }
+      async function connect() {
+        if (!window.ethereum) {
+          $('#status').textContent = "Durum: MetaMask bulunamadı";
+          alert("Lütfen MetaMask kurun ve sayfayı yenileyin.");
+          return;
+        }
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send('eth_requestAccounts', []);
+        signer = await provider.getSigner();
+        const addr = $('#contractAddress').value.trim();
+        if (!addr) { alert('Kontrat adresini girin.'); return; }
+        const abi = JSON.parse($('#abi').textContent);
+        contract = new ethers.Contract(addr, abi, signer);
+        const net = await provider.getNetwork();
+        const me = await signer.getAddress();
+        $('#status').textContent = `Durum: bağlı — hesap ${me}, ağ chainId=${net.chainId}`;
+        log("Bağlandı.");
+      }
 
-    async function updateCount() {
-      const value = await contract.methods.get().call();
-      document.getElementById("count").innerText = value;
-    }
+      async function getCounter() {
+        try {
+          const val = await contract.getCounter();
+          log("getCounter() => " + val.toString());
+        } catch (e) { log("Hata(getCounter): " + e.message); }
+      }
+      async function increment() {
+        try {
+          const tx = await contract.increment();
+          log("increment() tx: " + tx.hash);
+          await tx.wait();
+          log("increment() bitti.");
+        } catch (e) { log("Hata(increment): " + e.message); }
+      }
+      async function decrement() {
+        try {
+          const tx = await contract.decrement();
+          log("decrement() tx: " + tx.hash);
+          await tx.wait();
+          log("decrement() bitti.");
+        } catch (e) { log("Hata(decrement): " + e.message); }
+      }
+      async function setCounter() {
+        try {
+          const v = parseInt($('#setValue').value || "0", 10);
+          const tx = await contract.setCounter(v);
+          log("setCounter(" + v + ") tx: " + tx.hash);
+          await tx.wait();
+          log("setCounter() bitti.");
+        } catch (e) { log("Hata(setCounter): " + e.message); }
+      }
 
-    async function increment() {
-      const accounts = await web3.eth.getAccounts();
-      await contract.methods.increment().send({ from: accounts[0] });
-      updateCount();
-    }
-
-    async function decrement() {
-      const accounts = await web3.eth.getAccounts();
-      await contract.methods.decrement().send({ from: accounts[0] });
-      updateCount();
-    }
-
-    init();
-  </script>
-</body>
+      $('#btnConnect').addEventListener('click', connect);
+      $('#btnGet').addEventListener('click', getCounter);
+      $('#btnInc').addEventListener('click', increment);
+      $('#btnDec').addEventListener('click', decrement);
+      $('#btnSet').addEventListener('click', setCounter);
+    </script>
+  </body>
 </html>
