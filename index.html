@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Counter DApp</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+</head>
+<body>
+  <h1>Counter DApp</h1>
+
+  <p>Current Count: <span id="count">0</span></p>
+  <button onclick="increment()">Increment</button>
+  <button onclick="decrement()">Decrement</button>
+
+  <script>
+    // 🔹 1. BURAYA KENDİ KONTRAT ADRESİNİ YAPIŞTIR
+    const CONTRACT_ADDRESS = "0x60d53bec3457d1e98de70fa7c425b239d4849133";
+
+    // 🔹 2. BURAYA KENDİ ABI’NI YAPIŞTIR
+    const ABI = 
+      [
+	{
+		"inputs": [],
+		"name": "decrement",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "increment",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "get",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+
+    ];
+
+    let web3;
+    let contract;
+
+    async function init() {
+      // Metamask bağlantısı ister
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+      web3 = new Web3(window.ethereum);
+      contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
+      updateCount();
+    }
+
+    async function updateCount() {
+      const value = await contract.methods.get().call();
+      document.getElementById("count").innerText = value;
+    }
+
+    async function increment() {
+      const accounts = await web3.eth.getAccounts();
+      await contract.methods.increment().send({ from: accounts[0] });
+      updateCount();
+    }
+
+    async function decrement() {
+      const accounts = await web3.eth.getAccounts();
+      await contract.methods.decrement().send({ from: accounts[0] });
+      updateCount();
+    }
+
+    init();
+  </script>
+</body>
+</html>
